@@ -5,7 +5,7 @@ This repository documents a dive into **LinkPro**, a real world eBPF based rootk
 The goal of this is not to provide a production-ready defense, but to:
 - understand how modern eBPF rootkits operate,
 - visualize their execution flow,
-- and explore where kernel-level prevention is technically possible,and where it is not.
+- and explore where kernel level prevention is technically possible,and where it is not.
 
 
 ## Contents
