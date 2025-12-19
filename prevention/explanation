@@ -1,1 +1,64 @@
+Prevention idea: what I tried to build:
+
+For this project, I tried to build a prevention mechanism against malicious eBPF rootkits, inspired by LinkPro-style attacks.
+
+The idea was simple:
+some eBPF rootkits hide files, processes, or even other eBPF programs by hooking sensitive syscalls like getdents (used to list directories) or sys_bpf (used to manage eBPF itself).
+If we can block eBPF programs that try to hook those syscalls, we can stop the attack before it even starts.
+
+To do that, I chose to work at kernel level since userspace inspection might be unreliable itself as we have seen in LinkPro case, using an LSM (Linux Security Module) eBPF program.
+LSM hooks are executed when the kernel is about to allow or deny a sensitive action, which makes them a good place to enforce security policies.
+
+My goal was to say: “If an eBPF program tries to load and hook getdents or sys_bpf, deny it.”
+
+How my LSM eBPF program works (code explained simply):
+a) The LSM hook
+I attached my program to this hook: SEC("lsm/bpf_prog_load")
+This hook is triggered every time a new eBPF program is being loaded into the kernel.
+At that moment, the kernel passes a pointer to the program being loaded.
+
+b) What I wanted to inspect:
+Inside the hook, I tried to read two pieces of information: the type of the eBPF program (is it an LSM program, a kprobe/kretprobe program?), the target it wants to attach to (getdents, sys_bpf).
+
+This is what the logic looks like in simple terms:
+if program_type is LSM or kprobe:
+    if target is getdents or sys_bpf:
+        block loading
+
+If the program looked suspicious, I returned -EPERM, which tells the kernel to deny loading.
+
+c) Why I used BTF IDs and a Python loader
+-Instead of hardcoding syscall names, I used BTF IDs.
+-The Python loader: extracts the BTF ID of __x64_sys_getdents64 and __x64_sys_bpf. Injects those IDs into the eBPF program before loading it.
+
+This makes the logic more robust and closer to how real kernel tools work.
+
+d) Compilation step
+
+To compile the eBPF program, I used: clang -O2 -g -target bpf -c lsmbpfLinkPro.c -o lsmbpfLinkPro.o
+
+The result(what i was hoping for) is an ELF object file that can be loaded by the kernel.
+
+The Python loader then:
+
+-opens the object
+-fills the external variables
+-loads the program
+-attaches it to the LSM hook
+
+The limitation I hit:
+
+While implementing this, I hit an important kernel design boundary.
+The structure I tried to inspect, struct bpf_prog, is opaque in the kernel’s BTF.
+That means its internal fields, such as program type or attach target, are not exposed to eBPF programs.
+
+Because of that:
+-the compiler cannot generate BTF for those fields
+-CO-RE relocation cannot work
+-the program fails to compile
+
+So this was a kernel security design choice: LSM programs are allowed to make decisions based on intent, but not to introspect internal kernel objects.
+
+This project helped me understand a very important concept: 
+"Security mechanisms in eBPF are not limited by ideas, but by what the kernel explicitly allows you to observe".
 
