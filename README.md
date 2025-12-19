@@ -1,6 +1,6 @@
 # LinkPro eBPF Rootkit: Analysis & Prevention Attempt
 
-This repository documents a dive into **LinkPro**, a real-world eBPF-based rootkit observed in attacks against AWS and Linux environments.
+This repository documents a dive into **LinkPro**, a real world eBPF based rootkit observed in attacks against AWS and Linux environments.
 
 The goal of this is not to provide a production-ready defense, but to:
 - understand how modern eBPF rootkits operate,
